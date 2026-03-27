@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { Eye, ArrowLeft, Check, X, Minus } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Eye, ArrowLeft, Check, X, Minus, LogOut, Volleyball, Home, History, Users } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Navbar } from "@/components/navbar"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableBody,
@@ -12,9 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { createClient } from "@/lib/supabase/client"
 
-// Demo data
-const PLAYER_NAME = "Ramiro Suárez"
+const PLAYER_NAME = "Ramiro Suarez"
 
 interface PaymentRecord {
   month: string
@@ -36,13 +37,75 @@ const totalPaid = paymentHistory.filter((p) => p.status === "confirmado").length
 const totalMonths = paymentHistory.length
 const totalAmount = totalPaid * 2000
 
-export default function MiHistorialPage() {
+function PlayerNavbar({ playerName }: { playerName: string }) {
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
+
+  return (
+    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <Volleyball className="w-5 h-5 text-primary" />
+            </div>
+            <span className="font-display text-xl tracking-wide text-foreground hidden sm:block">
+              MAXIVOLEY
+            </span>
+          </div>
+
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <Link
+              href="/jugador/mi-pago"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              <span className="hidden sm:inline">Mi Pago</span>
+            </Link>
+            <Link
+              href="/jugador/historial"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Historial</span>
+            </Link>
+            <Link
+              href="/jugador/resumen"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Equipo</span>
+            </Link>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden md:block">{playerName}</span>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+export default function HistorialPage() {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar playerName={PLAYER_NAME} />
+      <PlayerNavbar playerName={PLAYER_NAME} />
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Back Link */}
         <Link
           href="/jugador/mi-pago"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 animate-fade-in"
@@ -51,12 +114,10 @@ export default function MiHistorialPage() {
           Volver a Mi Pago
         </Link>
 
-        {/* Page Title */}
         <h1 className="font-display text-3xl tracking-wide text-foreground mb-6 animate-fade-in animate-fade-in-delay-1">
           MI HISTORIAL DE PAGOS
         </h1>
 
-        {/* Payment History Table */}
         <Card className="bg-card border-border mb-6 animate-fade-in animate-fade-in-delay-2">
           <CardContent className="p-0">
             <Table>
@@ -65,7 +126,7 @@ export default function MiHistorialPage() {
                   <TableHead className="text-muted-foreground">Mes</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
                   <TableHead className="text-muted-foreground text-center">Comprobante</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Fecha de confirmación</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Fecha de confirmacion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,11 +171,10 @@ export default function MiHistorialPage() {
           </CardContent>
         </Card>
 
-        {/* Stats Summary */}
         <Card className="bg-card border-border animate-fade-in animate-fade-in-delay-5">
           <CardContent className="py-4">
             <p className="text-center text-muted-foreground">
-              <span className="text-foreground font-semibold">{totalPaid} de {totalMonths}</span> meses pagados · 
+              <span className="text-foreground font-semibold">{totalPaid} de {totalMonths}</span> meses pagados - 
               <span className="text-primary font-semibold"> ${totalAmount.toLocaleString("es-AR")}</span> abonados en total
             </p>
           </CardContent>
