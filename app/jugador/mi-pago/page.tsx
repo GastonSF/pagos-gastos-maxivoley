@@ -273,7 +273,7 @@ export default function MiPagoPage() {
             onClick={cycleState}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            [Demo: Cambiar estado -> {paymentState === "none" ? "Pendiente" : paymentState === "pending" ? "Confirmado" : "Sin pago"}]
+            {"[Demo: Cambiar estado a "}{paymentState === "none" ? "Pendiente" : paymentState === "pending" ? "Confirmado" : "Sin pago"}{"]"}
           </button>
         </div>
 
