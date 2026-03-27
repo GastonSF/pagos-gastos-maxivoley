@@ -1,22 +1,22 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import { DM_Sans, Bebas_Neue } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const dmSans = DM_Sans({ 
   subsets: ["latin"],
-  variable: '--font-dm-sans',
-})
+  variable: "--font-sans",
+});
 
 const bebasNeue = Bebas_Neue({ 
-  weight: '400',
+  weight: "400",
   subsets: ["latin"],
-  variable: '--font-bebas-neue',
-})
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
-  title: 'Pagos y Gastos MaxiVoley',
-  description: 'Sistema de gestion financiera para equipos deportivos',
+  title: 'Pagos y Gastos MaxiVóley',
+  description: 'Sistema de gestión de pagos y gastos para el equipo MaxiVóley',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -35,10 +35,6 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-icon.png',
   },
-}
-
-export const viewport: Viewport = {
-  themeColor: '#0f1f35',
 }
 
 export default function RootLayout({

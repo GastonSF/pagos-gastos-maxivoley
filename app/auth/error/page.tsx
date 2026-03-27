@@ -27,14 +27,14 @@ export default function AuthErrorPage() {
 
           {/* Actions */}
           <div className="flex flex-col gap-3">
-            <Link href="/registro">
+            <Link href="/auth/registro">
               <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                 Volver a Registrarse
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/auth/login">
               <Button variant="outline" className="w-full">
-                Ir al Inicio de Sesión
+                Ir al Inicio de Sesion
               </Button>
             </Link>
           </div>
