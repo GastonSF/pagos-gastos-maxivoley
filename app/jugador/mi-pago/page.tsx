@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Upload, FileText, Check, AlertTriangle, Clock, LogOut, Volleyball, Home, History, Users, Loader2 } from "lucide-react"
+import { Upload, FileText, Check, AlertTriangle, Clock, LogOut, Volleyball, Home, History, Users, Loader2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -113,14 +113,14 @@ export default function MiPagoPage() {
   // Form fields
   const currentDate = new Date()
   const [selectedMes, setSelectedMes] = useState<number>(currentDate.getMonth() + 1)
-  const [selectedAnio] = useState<number>(currentDate.getFullYear())
+  const [selectedAnio, setSelectedAnio] = useState<number>(currentDate.getFullYear())
   const [monto, setMonto] = useState<string>("")
   const [numeroTransferencia, setNumeroTransferencia] = useState<string>("")
   const [nota, setNota] = useState<string>("")
 
   useEffect(() => {
     loadUserAndPayment()
-  }, [selectedMes])
+  }, [selectedMes, selectedAnio])
 
   const loadUserAndPayment = async () => {
     const supabase = createClient()
@@ -505,6 +505,25 @@ export default function MiPagoPage() {
                 <p className="text-sm text-success text-center">
                   Gracias por pagar a tiempo!
                 </p>
+
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (selectedMes === 12) {
+                        setSelectedMes(1)
+                        setSelectedAnio(selectedAnio + 1)
+                      } else {
+                        setSelectedMes(selectedMes + 1)
+                      }
+                      setPaymentState("none")
+                    }}
+                    className="border-primary text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Informar pago de {MESES[selectedMes === 12 ? 0 : selectedMes]} {selectedMes === 12 ? selectedAnio + 1 : selectedAnio}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
