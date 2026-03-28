@@ -45,25 +45,27 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        // Get player data to check status and role
-        const { data: playerData, error: playerError } = await supabase
-          .from("players")
+        // Get user data from usuarios table to check status and role
+        const { data: userData, error: userError } = await supabase
+          .from("usuarios")
           .select("estado, rol")
           .eq("id", data.user.id)
           .single()
 
-        if (playerError || !playerData) {
-          setError("No se encontraron datos del jugador")
+        if (userError || !userData) {
+          setError("Usuario no encontrado")
           return
         }
 
-        // Redirect based on status and role
-        if (playerData.estado === "pendiente") {
-          router.push("/pendiente")
-        } else if (playerData.rol === "tecnico") {
-          router.push("/admin")
-        } else {
+        // Redirect based on role and status
+        if (userData.rol === "admin") {
+          router.push("/admin/dashboard")
+        } else if (userData.rol === "jugador" && userData.estado === "activo") {
           router.push("/jugador/mi-pago")
+        } else if (userData.rol === "jugador" && userData.estado === "pendiente") {
+          router.push("/pendiente")
+        } else {
+          setError("Estado de cuenta no válido")
         }
       }
     } catch (err) {
