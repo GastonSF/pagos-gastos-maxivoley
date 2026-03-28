@@ -16,7 +16,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 const navItems = [
-  { href: "/jugadores", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/jugadores", icon: Users, label: "Jugadores" },
   { href: "/pagos", icon: CreditCard, label: "Pagos" },
   { href: "/egresos", icon: ArrowUpCircle, label: "Egresos" },
