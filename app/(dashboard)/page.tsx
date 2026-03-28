@@ -34,12 +34,6 @@ export default function DashboardPage() {
       const supabase = createClient()
 
       // Check session first - this prevents the logout issue
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-if (userError || !user) {
-  router.push("/auth/login")
-  return
-}
 
       // Fixed month: March 2026
       const mes = 3
