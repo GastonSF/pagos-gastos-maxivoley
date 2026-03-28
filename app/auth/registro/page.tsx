@@ -75,6 +75,24 @@ export default function RegistroPage() {
       }
 
       if (data.user) {
+        // Insert user into usuarios table
+        const { error: insertError } = await supabase.from("usuarios").insert({
+          id: data.user.id,
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          dni: formData.dni,
+          telefono: formData.telefono,
+          email: formData.email,
+          rol: "jugador",
+          estado: "pendiente",
+        })
+
+        if (insertError) {
+          console.error("Error inserting user:", insertError)
+          setError("Error al guardar los datos. Por favor contactá al administrador.")
+          return
+        }
+
         setSuccess(true)
       }
     } catch (err) {
