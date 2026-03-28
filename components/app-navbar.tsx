@@ -1,10 +1,47 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { createClient } from "@/lib/supabase/client"
 
 export function AppNavbar() {
+  const [userName, setUserName] = useState({ nombre: "", apellido: "" })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient()
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user?.email) {
+        const { data: usuario } = await supabase
+          .from("usuarios")
+          .select("nombre, apellido")
+          .eq("email", user.email)
+          .single()
+        
+        if (usuario) {
+          setUserName({ nombre: usuario.nombre, apellido: usuario.apellido })
+        }
+      }
+      
+      setLoading(false)
+    }
+    
+    fetchUser()
+  }, [])
+
+  const initials = userName.nombre && userName.apellido
+    ? `${userName.nombre.charAt(0)}${userName.apellido.charAt(0)}`.toUpperCase()
+    : "?"
+
+  const fullName = userName.nombre && userName.apellido
+    ? `${userName.nombre} ${userName.apellido}`
+    : "Cargando..."
+
   return (
     <header className="sticky top-0 z-20 h-16 bg-card border-b border-border">
       <div className="flex items-center justify-between h-full px-6 lg:px-8">
@@ -23,12 +60,14 @@ export function AppNavbar() {
           <div className="hidden sm:flex items-center gap-3">
             <Avatar className="h-9 w-9 bg-secondary">
               <AvatarFallback className="bg-secondary text-foreground text-sm font-medium">
-                MG
+                {loading ? "..." : initials}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">Tecnico</span>
-              <span className="text-sm font-medium text-foreground">Marcelo Gomez</span>
+              <span className="text-sm font-medium text-foreground">
+                {loading ? "Cargando..." : fullName}
+              </span>
             </div>
           </div>
           <Button 
