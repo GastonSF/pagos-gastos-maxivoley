@@ -23,7 +23,7 @@ export default function HomePage() {
               asChild
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 hover:glow-teal transition-all font-semibold"
             >
-              <Link href="/auth/login">Iniciar Sesión</Link>
+              <Link href="/login">Iniciar Sesión</Link>
             </Button>
             
             <Button
