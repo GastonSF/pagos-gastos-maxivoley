@@ -133,7 +133,7 @@ export default function JugadoresPage() {
       {/* Header */}
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
-          <Link href="/admin/dashboard">
+          <Link href="/">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="w-5 h-5" />
             </Button>
