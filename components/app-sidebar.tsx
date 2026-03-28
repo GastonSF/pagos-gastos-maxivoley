@@ -58,10 +58,14 @@ export function AppSidebar() {
         <div className="flex flex-col h-full">
           {/* Logo area */}
           <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-            <span className="font-heading text-2xl tracking-wide text-foreground">
-              MAXIVOLEY
-            </span>
-          </div>
+            <div className="flex items-center gap-2">
+  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93c4.08 4.08 5.65 9.65 4.07 15.07"/><path d="M19.07 4.93c-4.08 4.08-5.65 9.65-4.07 15.07"/><path d="M2 12h20"/></svg>
+  </div>
+  <span className="font-heading text-2xl tracking-wide text-foreground">
+    MAXIVOLEY
+  </span>
+</div>
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1">
