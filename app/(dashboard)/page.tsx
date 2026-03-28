@@ -8,7 +8,6 @@ import { KpiCard } from "@/components/kpi-card"
 import { ProgressRing } from "@/components/progress-ring"
 import { PaymentsBarChart } from "@/components/payments-bar-chart"
 import { RecentActivityTable } from "@/components/recent-activity-table"
-import { Spinner } from "@/components/ui/spinner"
 
 interface DashboardData {
   totalJugadores: number
@@ -134,7 +133,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="h-8 w-8 text-teal" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     )
   }
