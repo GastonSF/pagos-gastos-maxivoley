@@ -1,10 +1,19 @@
+import { redirect } from "next/navigation"
 import { TrendingUp, ArrowUpCircle, Wallet, Users } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
 import { KpiCard } from "@/components/kpi-card"
 import { ProgressRing } from "@/components/progress-ring"
 import { PaymentsBarChart } from "@/components/payments-bar-chart"
 import { RecentActivityTable } from "@/components/recent-activity-table"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
+    redirect("/auth/login")
+  }
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
