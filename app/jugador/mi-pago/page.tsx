@@ -1,23 +1,41 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Upload, FileText, Check, AlertTriangle, Clock, LogOut, Volleyball, Home, History, Users } from "lucide-react"
+import { Upload, FileText, Check, AlertTriangle, Clock, LogOut, Volleyball, Home, History, Users, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 
-type PaymentState = "none" | "pending" | "confirmed"
+type PaymentState = "loading" | "none" | "pending" | "confirmed"
 
-interface UploadedFile {
-  name: string
-  uploadDate: string
+interface PagoRecord {
+  id: string
+  mes: number
+  anio: number
+  monto: number
+  estado: string
+  url_comprobante: string
+  nombre_archivo: string
+  fecha_subida: string
+  fecha_confirmacion?: string
 }
 
-const PLAYER_NAME = "Ramiro Suarez"
-const CURRENT_MONTH = "Julio 2025"
-const MONTHLY_FEE = "$2.000"
+interface UserData {
+  id: string
+  nombre: string
+  apellido: string
+}
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+]
 
 function PlayerNavbar({ playerName }: { playerName: string }) {
   const router = useRouter()
@@ -83,10 +101,79 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 }
 
 export default function MiPagoPage() {
-  const [paymentState, setPaymentState] = useState<PaymentState>("none")
+  const router = useRouter()
+  const [paymentState, setPaymentState] = useState<PaymentState>("loading")
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [pagoActual, setPagoActual] = useState<PagoRecord | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Form fields
+  const currentDate = new Date()
+  const [selectedMes, setSelectedMes] = useState<number>(currentDate.getMonth() + 1)
+  const [selectedAnio] = useState<number>(currentDate.getFullYear())
+  const [monto, setMonto] = useState<string>("")
+  const [numeroTransferencia, setNumeroTransferencia] = useState<string>("")
+  const [nota, setNota] = useState<string>("")
+
+  useEffect(() => {
+    loadUserAndPayment()
+  }, [selectedMes])
+
+  const loadUserAndPayment = async () => {
+    const supabase = createClient()
+    
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      router.push("/auth/login")
+      return
+    }
+
+    // Get user data from usuarios table
+    const { data: userDataResult, error: userError } = await supabase
+      .from("usuarios")
+      .select("id, nombre, apellido")
+      .eq("id", user.id)
+      .single()
+
+    if (userError || !userDataResult) {
+      setError("Error al cargar datos del usuario")
+      setPaymentState("none")
+      return
+    }
+
+    setUserData(userDataResult)
+
+    // Check for existing payment for selected month/year
+    const { data: pagoData, error: pagoError } = await supabase
+      .from("pagos")
+      .select("*")
+      .eq("usuario_id", user.id)
+      .eq("mes", selectedMes)
+      .eq("anio", selectedAnio)
+      .single()
+
+    if (pagoError && pagoError.code !== "PGRST116") {
+      // PGRST116 = no rows found, which is fine
+      console.error("Error loading payment:", pagoError)
+    }
+
+    if (pagoData) {
+      setPagoActual(pagoData)
+      if (pagoData.estado === "confirmado") {
+        setPaymentState("confirmed")
+      } else {
+        setPaymentState("pending")
+      }
+    } else {
+      setPagoActual(null)
+      setPaymentState("none")
+    }
+  }
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -104,6 +191,9 @@ export default function MiPagoPage() {
     const file = e.dataTransfer.files[0]
     if (file && isValidFileType(file)) {
       setSelectedFile(file)
+      setError(null)
+    } else {
+      setError("Archivo no valido. Solo PDF, JPG o PNG de hasta 10MB.")
     }
   }, [])
 
@@ -111,6 +201,9 @@ export default function MiPagoPage() {
     const file = e.target.files?.[0]
     if (file && isValidFileType(file)) {
       setSelectedFile(file)
+      setError(null)
+    } else if (file) {
+      setError("Archivo no valido. Solo PDF, JPG o PNG de hasta 10MB.")
     }
   }
 
@@ -119,45 +212,109 @@ export default function MiPagoPage() {
     return validTypes.includes(file.type) && file.size <= 10 * 1024 * 1024
   }
 
-  const handleSubmit = () => {
-    if (selectedFile) {
-      setUploadedFile({
-        name: selectedFile.name,
-        uploadDate: new Date().toLocaleDateString("es-AR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }),
+  const handleSubmit = async () => {
+    if (!selectedFile || !userData || !monto) {
+      setError("Por favor completa el monto y selecciona un comprobante")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const supabase = createClient()
+
+      // Upload file to Supabase Storage
+      const fileExt = selectedFile.name.split(".").pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const filePath = `${userData.id}/${selectedAnio}/${selectedMes}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("comprobantes-pagos")
+        .upload(filePath, selectedFile)
+
+      if (uploadError) {
+        throw new Error("Error al subir el comprobante: " + uploadError.message)
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("comprobantes-pagos")
+        .getPublicUrl(filePath)
+
+      // Insert payment record
+      const { error: insertError } = await supabase.from("pagos").insert({
+        usuario_id: userData.id,
+        mes: selectedMes,
+        anio: selectedAnio,
+        monto: parseFloat(monto),
+        url_comprobante: urlData.publicUrl,
+        nombre_archivo: selectedFile.name,
+        numero_transferencia: numeroTransferencia || null,
+        nota: nota || null,
+        estado: "pendiente",
+        fecha_subida: new Date().toISOString(),
       })
-      setPaymentState("pending")
+
+      if (insertError) {
+        throw new Error("Error al guardar el pago: " + insertError.message)
+      }
+
+      // Reload payment data
+      await loadUserAndPayment()
       setSelectedFile(null)
+      setMonto("")
+      setNumeroTransferencia("")
+      setNota("")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const cycleState = () => {
-    if (paymentState === "none") setPaymentState("pending")
-    else if (paymentState === "pending") setPaymentState("confirmed")
-    else setPaymentState("none")
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  }
+
+  const playerName = userData ? `${userData.nombre} ${userData.apellido}` : "Cargando..."
+
+  if (paymentState === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <PlayerNavbar playerName={PLAYER_NAME} />
+      <PlayerNavbar playerName={playerName} />
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 mb-6 animate-fade-in">
           <CardContent className="py-6">
             <h1 className="font-display text-3xl tracking-wide text-foreground">
-              Hola, {PLAYER_NAME.split(" ")[0]}
+              Hola, {userData?.nombre || "Jugador"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {CURRENT_MONTH} - Cuota mensual: {MONTHLY_FEE}
+              {MESES[selectedMes - 1]} {selectedAnio}
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-card border-border animate-fade-in animate-fade-in-delay-1">
           <CardContent className="py-6">
+            {error && (
+              <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                {error}
+              </div>
+            )}
+
             {paymentState === "none" && (
               <div className="space-y-6">
                 <div className="flex justify-center">
@@ -167,50 +324,119 @@ export default function MiPagoPage() {
                   </span>
                 </div>
 
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`
-                    relative border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer
-                    ${isDragging ? "border-primary bg-primary/5" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
-                    ${selectedFile ? "border-primary bg-primary/5" : ""}
-                  `}
-                >
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileSelect}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                {/* Month Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="mes">Mes</Label>
+                  <Select value={selectedMes.toString()} onValueChange={(v) => setSelectedMes(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MESES.map((mes, index) => (
+                        <SelectItem key={index + 1} value={(index + 1).toString()}>
+                          {mes} {selectedAnio}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Monto */}
+                <div className="space-y-2">
+                  <Label htmlFor="monto">Monto pagado *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      id="monto"
+                      type="number"
+                      value={monto}
+                      onChange={(e) => setMonto(e.target.value)}
+                      placeholder="2000"
+                      className="pl-7"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Numero de transferencia */}
+                <div className="space-y-2">
+                  <Label htmlFor="numeroTransferencia">Numero de transferencia (opcional)</Label>
+                  <Input
+                    id="numeroTransferencia"
+                    type="text"
+                    value={numeroTransferencia}
+                    onChange={(e) => setNumeroTransferencia(e.target.value)}
+                    placeholder="Ej: 123456789"
                   />
-                  
-                  {selectedFile ? (
-                    <div className="space-y-2">
-                      <FileText className="h-10 w-10 text-primary mx-auto" />
-                      <p className="text-foreground font-medium">{selectedFile.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Archivo seleccionado - Hace clic para cambiar
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Upload className="h-10 w-10 text-primary mx-auto" />
-                      <p className="text-foreground font-medium">
-                        Subi tu comprobante de transferencia
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        PDF, JPG o PNG - Maximo 10MB
-                      </p>
-                    </div>
-                  )}
+                </div>
+
+                {/* Nota */}
+                <div className="space-y-2">
+                  <Label htmlFor="nota">Nota o comentario (opcional)</Label>
+                  <Textarea
+                    id="nota"
+                    value={nota}
+                    onChange={(e) => setNota(e.target.value)}
+                    placeholder="Ej: Pago correspondiente a julio"
+                    rows={2}
+                  />
+                </div>
+
+                {/* File Upload Zone */}
+                <div className="space-y-2">
+                  <Label>Comprobante *</Label>
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      relative border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer
+                      ${isDragging ? "border-primary bg-primary/5" : "border-primary/50 hover:border-primary hover:bg-primary/5"}
+                      ${selectedFile ? "border-primary bg-primary/5" : ""}
+                    `}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleFileSelect}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    
+                    {selectedFile ? (
+                      <div className="space-y-2">
+                        <FileText className="h-10 w-10 text-primary mx-auto" />
+                        <p className="text-foreground font-medium">{selectedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Archivo seleccionado - Hace clic para cambiar
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="h-10 w-10 text-primary mx-auto" />
+                        <p className="text-foreground font-medium">
+                          Subi tu comprobante de transferencia
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          PDF, JPG o PNG - Maximo 10MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={!selectedFile}
+                  disabled={!selectedFile || !monto || isSubmitting}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90 hover:glow-teal transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Enviar Comprobante
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    "Enviar Comprobante"
+                  )}
                 </Button>
 
                 <p className="text-sm text-muted-foreground text-center">
@@ -219,7 +445,7 @@ export default function MiPagoPage() {
               </div>
             )}
 
-            {paymentState === "pending" && (
+            {paymentState === "pending" && pagoActual && (
               <div className="space-y-6">
                 <div className="flex justify-center">
                   <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-warning/10 text-warning border border-warning/30">
@@ -232,12 +458,21 @@ export default function MiPagoPage() {
                   <FileText className="h-5 w-5 text-primary" />
                   <div>
                     <p className="text-foreground font-medium">
-                      {uploadedFile?.name || "comprobante_julio2025.pdf"}
+                      {pagoActual.nombre_archivo}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Subido el {uploadedFile?.uploadDate || "03/07/2025"}
+                      Subido el {formatDate(pagoActual.fecha_subida)}
                     </p>
                   </div>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-2xl font-semibold text-foreground">
+                    ${pagoActual.monto.toLocaleString("es-AR")}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {MESES[pagoActual.mes - 1]} {pagoActual.anio}
+                  </p>
                 </div>
 
                 <p className="text-sm text-muted-foreground text-center">
@@ -246,7 +481,7 @@ export default function MiPagoPage() {
               </div>
             )}
 
-            {paymentState === "confirmed" && (
+            {paymentState === "confirmed" && pagoActual && (
               <div className="space-y-6">
                 <div className="flex justify-center">
                   <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 text-success border border-success/30">
@@ -256,8 +491,15 @@ export default function MiPagoPage() {
                 </div>
 
                 <div className="text-center space-y-2">
-                  <p className="text-muted-foreground">Confirmado el 05/07/2025</p>
-                  <p className="text-2xl font-semibold text-foreground">{MONTHLY_FEE}</p>
+                  <p className="text-muted-foreground">
+                    Confirmado el {pagoActual.fecha_confirmacion ? formatDate(pagoActual.fecha_confirmacion) : "—"}
+                  </p>
+                  <p className="text-2xl font-semibold text-foreground">
+                    ${pagoActual.monto.toLocaleString("es-AR")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {MESES[pagoActual.mes - 1]} {pagoActual.anio}
+                  </p>
                 </div>
 
                 <p className="text-sm text-success text-center">
@@ -267,15 +509,6 @@ export default function MiPagoPage() {
             )}
           </CardContent>
         </Card>
-
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={cycleState}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {"[Demo: Cambiar estado a "}{paymentState === "none" ? "Pendiente" : paymentState === "pending" ? "Confirmado" : "Sin pago"}{"]"}
-          </button>
-        </div>
 
         <div className="mt-8 text-center animate-fade-in animate-fade-in-delay-2">
           <Link
