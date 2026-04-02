@@ -1,14 +1,22 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
 
 export function AppNavbar() {
+  const router = useRouter()
   const [userName, setUserName] = useState({ nombre: "", apellido: "" })
   const [loading, setLoading] = useState(true)
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
 
   useEffect(() => {
     async function fetchUser() {
@@ -74,6 +82,7 @@ export function AppNavbar() {
             variant="ghost" 
             size="icon"
             className="text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
           >
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Cerrar sesion</span>
