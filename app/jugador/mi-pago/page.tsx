@@ -247,7 +247,7 @@ export default function MiPagoPage() {
         usuario_id: userData.id,
         mes: selectedMes,
         anio: selectedAnio,
-        monto: parseFloat(monto),
+        monto: parseFloat(monto.replace(/\./g, "").replace(",", ".")),
         url_comprobante: urlData.publicUrl,
         nombre_archivo: selectedFile.name,
         numero_transferencia: numeroTransferencia || null,
