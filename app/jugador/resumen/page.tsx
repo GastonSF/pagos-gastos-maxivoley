@@ -96,8 +96,8 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 export default function ResumenPage() {
   const [loading, setLoading] = useState(true)
   const [playerName, setPlayerName] = useState("")
-  const [mes, setMes] = useState(3)
-  const [anio, setAnio] = useState(2026)
+  const [mes, setMes] = useState(new Date().getMonth() + 1)
+  const [anio, setAnio] = useState(new Date().getFullYear())
   const [totalRecaudado, setTotalRecaudado] = useState(0)
   const [totalEgresos, setTotalEgresos] = useState(0)
   const [pagosConfirmados, setPagosConfirmados] = useState<PagoConfirmado[]>([])
