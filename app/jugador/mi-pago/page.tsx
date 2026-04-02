@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 
@@ -60,24 +59,15 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
           </div>
 
           <nav className="flex items-center gap-1 sm:gap-2">
-            <Link
-              href="/jugador/mi-pago"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary"
-            >
+            <Link href="/jugador/mi-pago" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary">
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">Mi Pago</span>
             </Link>
-            <Link
-              href="/jugador/historial"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/historial" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <History className="w-4 h-4" />
               <span className="hidden sm:inline">Historial</span>
             </Link>
-            <Link
-              href="/jugador/resumen"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/resumen" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Equipo</span>
             </Link>
@@ -85,12 +75,7 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden md:block">{playerName}</span>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Button onClick={handleLogout} variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -110,13 +95,10 @@ export default function MiPagoPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Form fields
   const currentDate = new Date()
   const [selectedMes, setSelectedMes] = useState<number>(currentDate.getMonth() + 1)
   const [selectedAnio, setSelectedAnio] = useState<number>(currentDate.getFullYear())
   const [monto, setMonto] = useState<string>("")
-  const [numeroTransferencia, setNumeroTransferencia] = useState<string>("")
-  const [nota, setNota] = useState<string>("")
 
   useEffect(() => {
     loadUserAndPayment()
@@ -124,16 +106,12 @@ export default function MiPagoPage() {
 
   const loadUserAndPayment = async () => {
     const supabase = createClient()
-    
-    // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
     if (authError || !user) {
       router.push("/auth/login")
       return
     }
 
-    // Get user data from usuarios table
     const { data: userDataResult, error: userError } = await supabase
       .from("usuarios")
       .select("id, nombre, apellido")
@@ -148,7 +126,6 @@ export default function MiPagoPage() {
 
     setUserData(userDataResult)
 
-    // Check for existing payment for selected month/year
     const { data: pagoData, error: pagoError } = await supabase
       .from("pagos")
       .select("*")
@@ -158,17 +135,12 @@ export default function MiPagoPage() {
       .single()
 
     if (pagoError && pagoError.code !== "PGRST116") {
-      // PGRST116 = no rows found, which is fine
       console.error("Error loading payment:", pagoError)
     }
 
     if (pagoData) {
       setPagoActual(pagoData)
-      if (pagoData.estado === "confirmado") {
-        setPaymentState("confirmed")
-      } else {
-        setPaymentState("pending")
-      }
+      setPaymentState(pagoData.estado === "confirmado" ? "confirmed" : "pending")
     } else {
       setPagoActual(null)
       setPaymentState("none")
@@ -224,7 +196,6 @@ export default function MiPagoPage() {
     try {
       const supabase = createClient()
 
-      // Upload file to Supabase Storage
       const fileExt = selectedFile.name.split(".").pop()
       const fileName = `${Date.now()}.${fileExt}`
       const filePath = `${userData.id}/${selectedAnio}/${selectedMes}/${fileName}`
@@ -237,21 +208,19 @@ export default function MiPagoPage() {
         throw new Error("Error al subir el comprobante: " + uploadError.message)
       }
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("comprobantes-pagos")
         .getPublicUrl(filePath)
 
-      // Insert payment record
+      const montoNumerico = parseFloat(monto.replace(/\./g, "").replace(",", "."))
+
       const { error: insertError } = await supabase.from("pagos").insert({
         usuario_id: userData.id,
         mes: selectedMes,
         anio: selectedAnio,
-        monto: parseFloat(monto.replace(/\./g, "").replace(",", ".")),
+        monto: montoNumerico,
         url_comprobante: urlData.publicUrl,
         nombre_archivo: selectedFile.name,
-        numero_transferencia: numeroTransferencia || null,
-        nota: nota || null,
         estado: "pendiente",
         fecha_subida: new Date().toISOString(),
       })
@@ -260,12 +229,9 @@ export default function MiPagoPage() {
         throw new Error("Error al guardar el pago: " + insertError.message)
       }
 
-      // Reload payment data
       await loadUserAndPayment()
       setSelectedFile(null)
       setMonto("")
-      setNumeroTransferencia("")
-      setNota("")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")
     } finally {
@@ -324,7 +290,6 @@ export default function MiPagoPage() {
                   </span>
                 </div>
 
-                {/* Month Selector */}
                 <div className="space-y-2">
                   <Label htmlFor="mes">Mes</Label>
                   <Select value={selectedMes.toString()} onValueChange={(v) => setSelectedMes(parseInt(v))}>
@@ -341,7 +306,6 @@ export default function MiPagoPage() {
                   </Select>
                 </div>
 
-                {/* Monto */}
                 <div className="space-y-2">
                   <Label htmlFor="monto">Monto pagado *</Label>
                   <div className="relative">
@@ -352,38 +316,13 @@ export default function MiPagoPage() {
                       inputMode="numeric"
                       value={monto}
                       onChange={(e) => setMonto(e.target.value)}
-                      placeholder="2000"
+                      placeholder="25000"
                       className="pl-7"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Numero de transferencia */}
-                <div className="space-y-2">
-                  <Label htmlFor="numeroTransferencia">Numero de transferencia (opcional)</Label>
-                  <Input
-                    id="numeroTransferencia"
-                    type="text"
-                    value={numeroTransferencia}
-                    onChange={(e) => setNumeroTransferencia(e.target.value)}
-                    placeholder="Ej: 123456789"
-                  />
-                </div>
-
-                {/* Nota */}
-                <div className="space-y-2">
-                  <Label htmlFor="nota">Nota o comentario (opcional)</Label>
-                  <Textarea
-                    id="nota"
-                    value={nota}
-                    onChange={(e) => setNota(e.target.value)}
-                    placeholder="Ej: Pago correspondiente a julio"
-                    rows={2}
-                  />
-                </div>
-
-                {/* File Upload Zone */}
                 <div className="space-y-2">
                   <Label>Comprobante *</Label>
                   <div
@@ -402,24 +341,17 @@ export default function MiPagoPage() {
                       onChange={handleFileSelect}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    
                     {selectedFile ? (
                       <div className="space-y-2">
                         <FileText className="h-10 w-10 text-primary mx-auto" />
                         <p className="text-foreground font-medium">{selectedFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Archivo seleccionado - Hace clic para cambiar
-                        </p>
+                        <p className="text-sm text-muted-foreground">Archivo seleccionado - Hacé clic para cambiar</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Upload className="h-10 w-10 text-primary mx-auto" />
-                        <p className="text-foreground font-medium">
-                          Subi tu comprobante de transferencia
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          PDF, JPG o PNG - Maximo 10MB
-                        </p>
+                        <p className="text-foreground font-medium">Subí tu comprobante de transferencia</p>
+                        <p className="text-sm text-muted-foreground">PDF, JPG o PNG - Máximo 10MB</p>
                       </div>
                     )}
                   </div>
@@ -441,7 +373,7 @@ export default function MiPagoPage() {
                 </Button>
 
                 <p className="text-sm text-muted-foreground text-center">
-                  Una vez enviado, el tecnico lo revisara y confirmara tu pago.
+                  Una vez enviado, el técnico lo revisará y confirmará tu pago.
                 </p>
               </div>
             )}
@@ -451,19 +383,15 @@ export default function MiPagoPage() {
                 <div className="flex justify-center">
                   <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-warning/10 text-warning border border-warning/30">
                     <span className="h-2 w-2 rounded-full bg-warning animate-pulse-dot" />
-                    Comprobante enviado — esperando confirmacion
+                    Comprobante enviado — esperando confirmación
                   </span>
                 </div>
 
                 <div className="flex items-center justify-center gap-3 p-4 bg-muted/50 rounded-lg">
                   <FileText className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="text-foreground font-medium">
-                      {pagoActual.nombre_archivo}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Subido el {formatDate(pagoActual.fecha_subida)}
-                    </p>
+                    <p className="text-foreground font-medium">{pagoActual.nombre_archivo}</p>
+                    <p className="text-sm text-muted-foreground">Subido el {formatDate(pagoActual.fecha_subida)}</p>
                   </div>
                 </div>
 
@@ -477,7 +405,7 @@ export default function MiPagoPage() {
                 </div>
 
                 <p className="text-sm text-muted-foreground text-center">
-                  El tecnico revisara tu comprobante a la brevedad.
+                  El técnico revisará tu comprobante a la brevedad.
                 </p>
               </div>
             )}
@@ -503,9 +431,7 @@ export default function MiPagoPage() {
                   </p>
                 </div>
 
-                <p className="text-sm text-success text-center">
-                  Gracias por pagar a tiempo!
-                </p>
+                <p className="text-sm text-success text-center">¡Gracias por pagar a tiempo!</p>
 
                 <div className="flex justify-center pt-4">
                   <Button
@@ -531,10 +457,7 @@ export default function MiPagoPage() {
         </Card>
 
         <div className="mt-8 text-center animate-fade-in animate-fade-in-delay-2">
-          <Link
-            href="/jugador/historial"
-            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-          >
+          <Link href="/jugador/historial" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors">
             <Clock className="h-4 w-4" />
             Ver mi historial
           </Link>
