@@ -1,43 +1,34 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, LogOut, Volleyball, Home, History, Users } from "lucide-react"
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, LogOut, Volleyball, Home, History, Users, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
 import { createClient } from "@/lib/supabase/client"
 
-const PLAYER_NAME = "Ramiro Suarez"
-const CURRENT_MONTH = "Julio 2025"
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+]
 
-const summaryData = {
-  totalCollected: 48000,
-  totalExpenses: 12000,
-  monthlyBalance: 36000,
+interface PagoConfirmado {
+  id: string
+  monto: number
+  fecha_confirmacion: string | null
+  usuarios: {
+    nombre: string
+    apellido: string
+  } | null
 }
 
-const confirmedPayments = [
-  { name: "Ramiro Suarez", amount: 2000, date: "05/07" },
-  { name: "Lucas Fernandez", amount: 2000, date: "03/07" },
-  { name: "Martin Garcia", amount: 2000, date: "02/07" },
-  { name: "Diego Lopez", amount: 2000, date: "01/07" },
-  { name: "Pablo Rodriguez", amount: 2000, date: "30/06" },
-  { name: "Andres Martinez", amount: 2000, date: "29/06" },
-  { name: "Federico Sanchez", amount: 2000, date: "28/06" },
-  { name: "Nicolas Perez", amount: 2000, date: "27/06" },
-]
-
-const monthlyExpenses = [
-  { description: "Alquiler cancha (4 fechas)", amount: 8000 },
-  { description: "Pelotas nuevas (x3)", amount: 2500 },
-  { description: "Botiquin primeros auxilios", amount: 1500 },
-]
-
-const paymentChartData = [
-  { name: "Pagaron", value: 18, color: "#00d4aa" },
-  { name: "No pagaron", value: 6, color: "#f43f5e" },
-]
+interface Egreso {
+  id: string
+  descripcion: string
+  monto: number
+}
 
 function PlayerNavbar({ playerName }: { playerName: string }) {
   const router = useRouter()
@@ -62,24 +53,15 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
           </div>
 
           <nav className="flex items-center gap-1 sm:gap-2">
-            <Link
-              href="/jugador/mi-pago"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/mi-pago" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">Mi Pago</span>
             </Link>
-            <Link
-              href="/jugador/historial"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/historial" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <History className="w-4 h-4" />
               <span className="hidden sm:inline">Historial</span>
             </Link>
-            <Link
-              href="/jugador/resumen"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary"
-            >
+            <Link href="/jugador/resumen" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Equipo</span>
             </Link>
@@ -87,12 +69,7 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden md:block">{playerName}</span>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Button onClick={handleLogout} variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -103,29 +80,115 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 }
 
 export default function ResumenPage() {
-  const paymentPercentage = Math.round(
-    (paymentChartData[0].value / (paymentChartData[0].value + paymentChartData[1].value)) * 100
-  )
+  const [loading, setLoading] = useState(true)
+  const [playerName, setPlayerName] = useState("")
+  const [mes, setMes] = useState(new Date().getMonth() + 1)
+  const [anio, setAnio] = useState(new Date().getFullYear())
+  const [totalRecaudado, setTotalRecaudado] = useState(0)
+  const [totalEgresos, setTotalEgresos] = useState(0)
+  const [pagosConfirmados, setPagosConfirmados] = useState<PagoConfirmado[]>([])
+  const [egresos, setEgresos] = useState<Egreso[]>([])
+  const [totalJugadores, setTotalJugadores] = useState(0)
+  const [jugadoresPagaron, setJugadoresPagaron] = useState(0)
+
+  useEffect(() => {
+    fetchData()
+  }, [mes, anio])
+
+  const fetchData = async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: userData } = await supabase
+        .from("usuarios")
+        .select("nombre, apellido")
+        .eq("id", user.id)
+        .single()
+      if (userData) setPlayerName(`${userData.nombre} ${userData.apellido}`)
+    }
+
+    const { data: pagosData } = await supabase
+      .from("pagos")
+      .select("monto")
+      .eq("estado", "confirmado")
+      .eq("mes", mes)
+      .eq("anio", anio)
+
+    const recaudado = pagosData?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+    setTotalRecaudado(recaudado)
+
+    const { data: egresosData } = await supabase
+      .from("egresos")
+      .select("id, descripcion, monto")
+      .eq("mes", mes)
+      .eq("anio", anio)
+
+    const egresosTotal = egresosData?.reduce((sum, e) => sum + (e.monto || 0), 0) || 0
+    setTotalEgresos(egresosTotal)
+    setEgresos(egresosData || [])
+
+    const { data: pagosConfirmadosData } = await supabase
+      .from("pagos")
+      .select("id, monto, fecha_confirmacion, usuarios(nombre, apellido)")
+      .eq("estado", "confirmado")
+      .eq("mes", mes)
+      .eq("anio", anio)
+      .order("fecha_confirmacion", { ascending: false })
+
+    setPagosConfirmados(pagosConfirmadosData as PagoConfirmado[] || [])
+    setJugadoresPagaron(pagosConfirmadosData?.length || 0)
+
+    const { count } = await supabase
+      .from("usuarios")
+      .select("*", { count: "exact", head: true })
+      .eq("rol", "jugador")
+      .eq("estado", "activo")
+
+    setTotalJugadores(count || 0)
+    setLoading(false)
+  }
+
+  const saldo = totalRecaudado - totalEgresos
+  const jugadoresNoPagaron = Math.max(0, totalJugadores - jugadoresPagaron)
+  const paymentPercentage = totalJugadores > 0 ? Math.round((jugadoresPagaron / totalJugadores) * 100) : 0
+
+  const paymentChartData = [
+    { name: "Pagaron", value: jugadoresPagaron, color: "#00d4aa" },
+    { name: "No pagaron", value: jugadoresNoPagaron, color: "#f43f5e" },
+  ]
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    return `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}`
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <PlayerNavbar playerName={PLAYER_NAME} />
+      <PlayerNavbar playerName={playerName} />
 
       <main className="container mx-auto px-4 py-8 max-w-5xl">
-        <Link
-          href="/jugador/mi-pago"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 animate-fade-in"
-        >
+        <Link href="/jugador/mi-pago" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 animate-fade-in">
           <ArrowLeft className="h-4 w-4" />
           Volver a Mi Pago
         </Link>
 
         <div className="mb-8 animate-fade-in animate-fade-in-delay-1">
           <h1 className="font-display text-3xl tracking-wide text-foreground">
-            Resumen del equipo — {CURRENT_MONTH}
+            RESUMEN DEL EQUIPO — {MESES[mes - 1]} {anio}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Esta informacion es publica para todos los miembros del equipo.
+            Esta información es pública para todos los miembros del equipo.
           </p>
         </div>
 
@@ -138,9 +201,7 @@ export default function ResumenPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Recaudado</p>
-                  <p className="text-2xl font-semibold text-primary">
-                    ${summaryData.totalCollected.toLocaleString("es-AR")}
-                  </p>
+                  <p className="text-2xl font-semibold text-primary">${totalRecaudado.toLocaleString("es-AR")}</p>
                 </div>
               </div>
             </CardContent>
@@ -154,9 +215,7 @@ export default function ResumenPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Egresos</p>
-                  <p className="text-2xl font-semibold text-warning">
-                    ${summaryData.totalExpenses.toLocaleString("es-AR")}
-                  </p>
+                  <p className="text-2xl font-semibold text-warning">${totalEgresos.toLocaleString("es-AR")}</p>
                 </div>
               </div>
             </CardContent>
@@ -170,8 +229,8 @@ export default function ResumenPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Saldo del Mes</p>
-                  <p className="text-2xl font-semibold text-success">
-                    ${summaryData.monthlyBalance.toLocaleString("es-AR")}
+                  <p className={`text-2xl font-semibold ${saldo >= 0 ? "text-success" : "text-destructive"}`}>
+                    ${saldo.toLocaleString("es-AR")}
                   </p>
                 </div>
               </div>
@@ -188,20 +247,19 @@ export default function ResumenPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {confirmedPayments.map((payment, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
-                    <div>
-                      <p className="text-foreground">{payment.name}</p>
-                      <p className="text-xs text-muted-foreground">{payment.date}</p>
+                {pagosConfirmados.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No hay pagos confirmados este mes</p>
+                ) : (
+                  pagosConfirmados.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-foreground">{payment.usuarios?.nombre} {payment.usuarios?.apellido}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(payment.fecha_confirmacion)}</p>
+                      </div>
+                      <span className="text-primary font-medium">${payment.monto.toLocaleString("es-AR")}</span>
                     </div>
-                    <span className="text-primary font-medium">
-                      ${payment.amount.toLocaleString("es-AR")}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -214,17 +272,16 @@ export default function ResumenPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {monthlyExpenses.map((expense, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
-                    <p className="text-foreground">{expense.description}</p>
-                    <span className="text-warning font-medium">
-                      -${expense.amount.toLocaleString("es-AR")}
-                    </span>
-                  </div>
-                ))}
+                {egresos.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No hay egresos registrados este mes</p>
+                ) : (
+                  egresos.map((expense) => (
+                    <div key={expense.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <p className="text-foreground">{expense.descripcion}</p>
+                      <span className="text-warning font-medium">-${expense.monto.toLocaleString("es-AR")}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -240,15 +297,7 @@ export default function ResumenPage() {
             <div className="h-64 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={paymentChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
+                  <Pie data={paymentChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
                     {paymentChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
@@ -258,11 +307,7 @@ export default function ResumenPage() {
                     height={36}
                     formatter={(value) => {
                       const data = paymentChartData.find((d) => d.name === value)
-                      return (
-                        <span className="text-foreground">
-                          {value}: {data?.value}
-                        </span>
-                      )
+                      return <span className="text-foreground">{value}: {data?.value}</span>
                     }}
                   />
                 </PieChart>
@@ -278,7 +323,7 @@ export default function ResumenPage() {
         </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground animate-fade-in">
-          Pagos y Gastos MaxiVoley - Resumen generado automaticamente cada mes.
+          Pagos y Gastos MaxiVoley - Resumen generado automáticamente cada mes.
         </div>
       </main>
     </div>
