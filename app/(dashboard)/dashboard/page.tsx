@@ -36,11 +36,11 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ]
 
-function getLastSixMonths() {
+function getNextSixMonths() {
   const months = []
   const now = new Date()
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+  for (let i = 0; i < 6; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() + i, 1)
     months.push({
       mes: date.getMonth() + 1,
       anio: date.getFullYear(),
