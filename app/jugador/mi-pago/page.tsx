@@ -348,7 +348,8 @@ export default function MiPagoPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <Input
                       id="monto"
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={monto}
                       onChange={(e) => setMonto(e.target.value)}
                       placeholder="2000"
