@@ -103,8 +103,8 @@ export default function PagosPage() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   
   // Default to March 2026 as specified
-  const [mesSeleccionado, setMesSeleccionado] = useState(3)
-  const [anioSeleccionado, setAnioSeleccionado] = useState(2026)
+  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1)
+const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear())
 
   const supabase = createClient()
 
