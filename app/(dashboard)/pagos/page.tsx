@@ -157,7 +157,7 @@ export default function PagosPage() {
       numero_transferencia: p.numero_transferencia,
       nota: p.nota,
       fecha_subida: p.fecha_subida,
-      comprobante_url: p.comprobante_url,
+      comprobante_url: p.url_comprobante,
       estado: p.estado,
     }))
 
