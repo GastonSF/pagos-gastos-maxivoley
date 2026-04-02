@@ -53,24 +53,15 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
           </div>
 
           <nav className="flex items-center gap-1 sm:gap-2">
-            <Link
-              href="/jugador/mi-pago"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/mi-pago" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">Mi Pago</span>
             </Link>
-            <Link
-              href="/jugador/historial"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
+            <Link href="/jugador/historial" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <History className="w-4 h-4" />
               <span className="hidden sm:inline">Historial</span>
             </Link>
-            <Link
-              href="/jugador/resumen"
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary"
-            >
+            <Link href="/jugador/resumen" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary/10 text-primary">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Equipo</span>
             </Link>
@@ -78,12 +69,7 @@ function PlayerNavbar({ playerName }: { playerName: string }) {
 
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden md:block">{playerName}</span>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Button onClick={handleLogout} variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -113,7 +99,6 @@ export default function ResumenPage() {
     setLoading(true)
     const supabase = createClient()
 
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: userData } = await supabase
@@ -121,13 +106,9 @@ export default function ResumenPage() {
         .select("nombre, apellido")
         .eq("id", user.id)
         .single()
-      
-      if (userData) {
-        setPlayerName(`${userData.nombre} ${userData.apellido}`)
-      }
+      if (userData) setPlayerName(`${userData.nombre} ${userData.apellido}`)
     }
 
-    // Get total recaudado (sum of confirmed payments)
     const { data: pagosData } = await supabase
       .from("pagos")
       .select("monto")
@@ -138,7 +119,6 @@ export default function ResumenPage() {
     const recaudado = pagosData?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
     setTotalRecaudado(recaudado)
 
-    // Get total egresos
     const { data: egresosData } = await supabase
       .from("egresos")
       .select("id, descripcion, monto")
@@ -149,7 +129,6 @@ export default function ResumenPage() {
     setTotalEgresos(egresosTotal)
     setEgresos(egresosData || [])
 
-    // Get confirmed payments with user info
     const { data: pagosConfirmadosData } = await supabase
       .from("pagos")
       .select("id, monto, fecha_confirmacion, usuarios(nombre, apellido)")
@@ -161,7 +140,6 @@ export default function ResumenPage() {
     setPagosConfirmados(pagosConfirmadosData as PagoConfirmado[] || [])
     setJugadoresPagaron(pagosConfirmadosData?.length || 0)
 
-    // Get total active players
     const { count } = await supabase
       .from("usuarios")
       .select("*", { count: "exact", head: true })
@@ -169,15 +147,12 @@ export default function ResumenPage() {
       .eq("estado", "activo")
 
     setTotalJugadores(count || 0)
-
     setLoading(false)
   }
 
   const saldo = totalRecaudado - totalEgresos
   const jugadoresNoPagaron = Math.max(0, totalJugadores - jugadoresPagaron)
-  const paymentPercentage = totalJugadores > 0 
-    ? Math.round((jugadoresPagaron / totalJugadores) * 100) 
-    : 0
+  const paymentPercentage = totalJugadores > 0 ? Math.round((jugadoresPagaron / totalJugadores) * 100) : 0
 
   const paymentChartData = [
     { name: "Pagaron", value: jugadoresPagaron, color: "#00d4aa" },
@@ -203,10 +178,7 @@ export default function ResumenPage() {
       <PlayerNavbar playerName={playerName} />
 
       <main className="container mx-auto px-4 py-8 max-w-5xl">
-        <Link
-          href="/jugador/mi-pago"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 animate-fade-in"
-        >
+        <Link href="/jugador/mi-pago" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 animate-fade-in">
           <ArrowLeft className="h-4 w-4" />
           Volver a Mi Pago
         </Link>
@@ -216,7 +188,7 @@ export default function ResumenPage() {
             RESUMEN DEL EQUIPO — {MESES[mes - 1]} {anio}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Esta informacion es publica para todos los miembros del equipo.
+            Esta información es pública para todos los miembros del equipo.
           </p>
         </div>
 
@@ -229,9 +201,7 @@ export default function ResumenPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Recaudado</p>
-                  <p className="text-2xl font-semibold text-primary">
-                    ${totalRecaudado.toLocaleString("es-AR")}
-                  </p>
+                  <p className="text-2xl font-semibold text-primary">${totalRecaudado.toLocaleString("es-AR")}</p>
                 </div>
               </div>
             </CardContent>
@@ -245,9 +215,7 @@ export default function ResumenPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Egresos</p>
-                  <p className="text-2xl font-semibold text-warning">
-                    ${totalEgresos.toLocaleString("es-AR")}
-                  </p>
+                  <p className="text-2xl font-semibold text-warning">${totalEgresos.toLocaleString("es-AR")}</p>
                 </div>
               </div>
             </CardContent>
@@ -283,21 +251,12 @@ export default function ResumenPage() {
                   <p className="text-muted-foreground text-center py-4">No hay pagos confirmados este mes</p>
                 ) : (
                   pagosConfirmados.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                    >
+                    <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                       <div>
-                        <p className="text-foreground">
-                          {payment.usuarios?.nombre} {payment.usuarios?.apellido}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(payment.fecha_confirmacion)}
-                        </p>
+                        <p className="text-foreground">{payment.usuarios?.nombre} {payment.usuarios?.apellido}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(payment.fecha_confirmacion)}</p>
                       </div>
-                      <span className="text-primary font-medium">
-                        ${payment.monto.toLocaleString("es-AR")}
-                      </span>
+                      <span className="text-primary font-medium">${payment.monto.toLocaleString("es-AR")}</span>
                     </div>
                   ))
                 )}
@@ -317,14 +276,9 @@ export default function ResumenPage() {
                   <p className="text-muted-foreground text-center py-4">No hay egresos registrados este mes</p>
                 ) : (
                   egresos.map((expense) => (
-                    <div
-                      key={expense.id}
-                      className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                    >
+                    <div key={expense.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                       <p className="text-foreground">{expense.descripcion}</p>
-                      <span className="text-warning font-medium">
-                        -${expense.monto.toLocaleString("es-AR")}
-                      </span>
+                      <span className="text-warning font-medium">-${expense.monto.toLocaleString("es-AR")}</span>
                     </div>
                   ))
                 )}
@@ -343,15 +297,7 @@ export default function ResumenPage() {
             <div className="h-64 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={paymentChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
+                  <Pie data={paymentChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
                     {paymentChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
@@ -361,11 +307,7 @@ export default function ResumenPage() {
                     height={36}
                     formatter={(value) => {
                       const data = paymentChartData.find((d) => d.name === value)
-                      return (
-                        <span className="text-foreground">
-                          {value}: {data?.value}
-                        </span>
-                      )
+                      return <span className="text-foreground">{value}: {data?.value}</span>
                     }}
                   />
                 </PieChart>
@@ -381,7 +323,7 @@ export default function ResumenPage() {
         </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground animate-fade-in">
-          Pagos y Gastos MaxiVoley - Resumen generado automaticamente cada mes.
+          Pagos y Gastos MaxiVoley - Resumen generado automáticamente cada mes.
         </div>
       </main>
     </div>
