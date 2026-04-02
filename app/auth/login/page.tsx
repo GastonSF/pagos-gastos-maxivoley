@@ -59,7 +59,7 @@ export default function LoginPage() {
 
         // Redirect based on role and status
         if (userData.rol === "admin") {
-          router.push("/jugadores")
+          router.push("/admin/dashboard")
         } else if (userData.rol === "jugador" && userData.estado === "activo") {
           router.push("/jugador/mi-pago")
         } else if (userData.rol === "jugador" && userData.estado === "pendiente") {
@@ -155,7 +155,13 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="mt-6 text-center animate-fade-in animate-fade-in-delay-5">
+          <div className="mt-4 text-center animate-fade-in animate-fade-in-delay-5">
+            <Link href="/auth/reset-password" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center animate-fade-in animate-fade-in-delay-5">
             <Link href="/auth/registro" className="text-sm text-primary hover:text-primary/80 transition-colors">
               ¿No tenés cuenta? Registrate &rarr;
             </Link>
