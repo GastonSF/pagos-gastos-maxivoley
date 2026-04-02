@@ -64,35 +64,27 @@ export default function DashboardPage() {
     async function fetchData() {
       const supabase = createClient()
 
-      const [
-        jugadoresRes,
-        pagosRes,
-        egresosRes,
-        pendientesRes
-      ] = await Promise.all([
+      const [jugadoresRes, pagosRes, egresosRes, pendientesRes] = await Promise.all([
         supabase
           .from("usuarios")
           .select("*", { count: "exact", head: true })
           .eq("rol", "jugador")
           .eq("estado", "activo"),
-        
         supabase
           .from("pagos")
           .select("monto")
           .eq("estado", "confirmado")
           .eq("mes", mesActual)
           .eq("anio", anioActual),
-        
         supabase
           .from("egresos")
           .select("monto")
           .eq("mes", mesActual)
           .eq("anio", anioActual),
-        
         supabase
           .from("pagos")
           .select("*", { count: "exact", head: true })
-          .eq("estado", "pendiente")
+          .eq("estado", "pendiente"),
       ])
 
       const totalRecaudado = pagosRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
@@ -103,10 +95,10 @@ export default function DashboardPage() {
         totalRecaudado,
         totalEgresos,
         saldo: totalRecaudado - totalEgresos,
-        pagosPendientes: pendientesRes.count || 0
+        pagosPendientes: pendientesRes.count || 0,
       })
 
-      const monthsToFetch = getLastSixMonths()
+      const monthsToFetch = getNextSixMonths()
       const monthlyDataPromises = monthsToFetch.map(async ({ mes, anio, label }) => {
         const [pagosMonthRes, egresosMonthRes] = await Promise.all([
           supabase
@@ -119,7 +111,7 @@ export default function DashboardPage() {
             .from("egresos")
             .select("monto")
             .eq("mes", mes)
-            .eq("anio", anio)
+            .eq("anio", anio),
         ])
 
         const recaudado = pagosMonthRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
@@ -141,7 +133,7 @@ export default function DashboardPage() {
       style: "currency",
       currency: "ARS",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount)
   }
 
@@ -162,50 +154,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-heading text-3xl tracking-wide text-foreground">
-          Dashboard
-        </h1>
+        <h1 className="font-heading text-3xl tracking-wide text-foreground">Dashboard</h1>
         <p className="text-muted-foreground">
           Resumen financiero - {mesNombre} {anioActual}
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <KpiCard
-          title="Jugadores Activos"
-          value={String(data?.jugadoresActivos || 0)}
-          icon={Users}
-          accent="teal"
-          animationDelay={0}
-        />
-        <KpiCard
-          title="Total Recaudado"
-          value={formatCurrency(data?.totalRecaudado || 0)}
-          icon={DollarSign}
-          accent="emerald"
-          animationDelay={1}
-        />
-        <KpiCard
-          title="Total Egresos"
-          value={formatCurrency(data?.totalEgresos || 0)}
-          icon={TrendingDown}
-          accent="rose"
-          animationDelay={2}
-        />
-        <KpiCard
-          title="Saldo"
-          value={formatCurrency(data?.saldo || 0)}
-          icon={Wallet}
-          accent={(data?.saldo || 0) >= 0 ? "emerald" : "rose"}
-          animationDelay={3}
-        />
-        <KpiCard
-          title="Pagos Pendientes"
-          value={String(data?.pagosPendientes || 0)}
-          icon={Clock}
-          accent="amber"
-          animationDelay={0}
-        />
+        <KpiCard title="Jugadores Activos" value={String(data?.jugadoresActivos || 0)} icon={Users} accent="teal" animationDelay={0} />
+        <KpiCard title="Total Recaudado" value={formatCurrency(data?.totalRecaudado || 0)} icon={DollarSign} accent="emerald" animationDelay={1} />
+        <KpiCard title="Total Egresos" value={formatCurrency(data?.totalEgresos || 0)} icon={TrendingDown} accent="rose" animationDelay={2} />
+        <KpiCard title="Saldo" value={formatCurrency(data?.saldo || 0)} icon={Wallet} accent={(data?.saldo || 0) >= 0 ? "emerald" : "rose"} animationDelay={3} />
+        <KpiCard title="Pagos Pendientes" value={String(data?.pagosPendientes || 0)} icon={Clock} accent="amber" animationDelay={0} />
       </div>
 
       <Card className="border-border bg-card">
@@ -219,18 +179,18 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e3d5c" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={{ stroke: '#1e3d5c' }} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={{ stroke: '#1e3d5c' }} tickLine={false} tickFormatter={formatYAxis} />
+                <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={{ stroke: "#1e3d5c" }} tickLine={false} />
+                <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={{ stroke: "#1e3d5c" }} tickLine={false} tickFormatter={formatYAxis} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a2f4a', border: '1px solid #1e3d5c', borderRadius: '8px', color: '#f8fafc' }}
-                  labelStyle={{ color: '#f8fafc', fontWeight: 600 }}
-                  formatter={(value: number) => [formatCurrency(value), '']}
+                  contentStyle={{ backgroundColor: "#1a2f4a", border: "1px solid #1e3d5c", borderRadius: "8px", color: "#f8fafc" }}
+                  labelStyle={{ color: "#f8fafc", fontWeight: 600 }}
+                  formatter={(value: number) => [formatCurrency(value), ""]}
                 />
                 <Legend
-                  wrapperStyle={{ paddingTop: '16px' }}
+                  wrapperStyle={{ paddingTop: "16px" }}
                   formatter={(value) => (
-                    <span style={{ color: '#94a3b8', fontSize: '12px' }}>
-                      {value === 'recaudado' ? 'Recaudado' : 'Egresos'}
+                    <span style={{ color: "#94a3b8", fontSize: "12px" }}>
+                      {value === "recaudado" ? "Recaudado" : "Egresos"}
                     </span>
                   )}
                 />
