@@ -59,7 +59,7 @@ export default function LoginPage() {
 
         // Redirect based on role and status
         if (userData.rol === "admin") {
-          router.push("/admin/dashboard")
+          router.push("/dashboard")
         } else if (userData.rol === "jugador" && userData.estado === "activo") {
           router.push("/jugador/mi-pago")
         } else if (userData.rol === "jugador" && userData.estado === "pendiente") {
