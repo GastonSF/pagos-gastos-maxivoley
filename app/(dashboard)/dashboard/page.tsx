@@ -31,25 +31,39 @@ interface MonthlyData {
   egresos: number
 }
 
-const MONTHS_TO_FETCH = [
-  { mes: 10, anio: 2025, label: "Octubre" },
-  { mes: 11, anio: 2025, label: "Noviembre" },
-  { mes: 12, anio: 2025, label: "Diciembre" },
-  { mes: 1, anio: 2026, label: "Enero" },
-  { mes: 2, anio: 2026, label: "Febrero" },
-  { mes: 3, anio: 2026, label: "Marzo" },
+const MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ]
+
+function getLastSixMonths() {
+  const months = []
+  const now = new Date()
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({
+      mes: date.getMonth() + 1,
+      anio: date.getFullYear(),
+      label: MONTH_NAMES[date.getMonth()]
+    })
+  }
+  return months
+}
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [chartData, setChartData] = useState<MonthlyData[]>([])
   const [loading, setLoading] = useState(true)
 
+  const now = new Date()
+  const mesActual = now.getMonth() + 1
+  const anioActual = now.getFullYear()
+  const mesNombre = MONTH_NAMES[now.getMonth()]
+
   useEffect(() => {
     async function fetchData() {
       const supabase = createClient()
 
-      // Fetch KPI data
       const [
         jugadoresRes,
         pagosRes,
@@ -66,14 +80,14 @@ export default function DashboardPage() {
           .from("pagos")
           .select("monto")
           .eq("estado", "confirmado")
-          .eq("mes", 3)
-          .eq("anio", 2026),
+          .eq("mes", mesActual)
+          .eq("anio", anioActual),
         
         supabase
           .from("egresos")
           .select("monto")
-          .eq("mes", 3)
-          .eq("anio", 2026),
+          .eq("mes", mesActual)
+          .eq("anio", anioActual),
         
         supabase
           .from("pagos")
@@ -92,8 +106,8 @@ export default function DashboardPage() {
         pagosPendientes: pendientesRes.count || 0
       })
 
-      // Fetch monthly chart data
-      const monthlyDataPromises = MONTHS_TO_FETCH.map(async ({ mes, anio, label }) => {
+      const monthsToFetch = getLastSixMonths()
+      const monthlyDataPromises = monthsToFetch.map(async ({ mes, anio, label }) => {
         const [pagosMonthRes, egresosMonthRes] = await Promise.all([
           supabase
             .from("pagos")
@@ -111,11 +125,7 @@ export default function DashboardPage() {
         const recaudado = pagosMonthRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
         const egresos = egresosMonthRes.data?.reduce((sum, e) => sum + (e.monto || 0), 0) || 0
 
-        return {
-          month: label,
-          recaudado,
-          egresos
-        }
+        return { month: label, recaudado, egresos }
       })
 
       const monthlyResults = await Promise.all(monthlyDataPromises)
@@ -136,12 +146,8 @@ export default function DashboardPage() {
   }
 
   const formatYAxis = (value: number) => {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`
-    }
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`
-    }
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
     return `$${value}`
   }
 
@@ -160,7 +166,7 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Resumen financiero - Marzo 2026
+          Resumen financiero - {mesNombre} {anioActual}
         </p>
       </div>
 
@@ -172,7 +178,6 @@ export default function DashboardPage() {
           accent="teal"
           animationDelay={0}
         />
-        
         <KpiCard
           title="Total Recaudado"
           value={formatCurrency(data?.totalRecaudado || 0)}
@@ -180,7 +185,6 @@ export default function DashboardPage() {
           accent="emerald"
           animationDelay={1}
         />
-        
         <KpiCard
           title="Total Egresos"
           value={formatCurrency(data?.totalEgresos || 0)}
@@ -188,7 +192,6 @@ export default function DashboardPage() {
           accent="rose"
           animationDelay={2}
         />
-        
         <KpiCard
           title="Saldo"
           value={formatCurrency(data?.saldo || 0)}
@@ -196,7 +199,6 @@ export default function DashboardPage() {
           accent={(data?.saldo || 0) >= 0 ? "emerald" : "rose"}
           animationDelay={3}
         />
-        
         <KpiCard
           title="Pagos Pendientes"
           value={String(data?.pagosPendientes || 0)}
@@ -216,34 +218,15 @@ export default function DashboardPage() {
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barGap={4}>
-                <CartesianGrid 
-                  strokeDasharray="3 3" 
-                  stroke="#1e3d5c" 
-                  vertical={false}
-                />
-                <XAxis 
-                  dataKey="month" 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  axisLine={{ stroke: '#1e3d5c' }}
-                  tickLine={false}
-                />
-                <YAxis 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  axisLine={{ stroke: '#1e3d5c' }}
-                  tickLine={false}
-                  tickFormatter={formatYAxis}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e3d5c" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={{ stroke: '#1e3d5c' }} tickLine={false} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={{ stroke: '#1e3d5c' }} tickLine={false} tickFormatter={formatYAxis} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1a2f4a',
-                    border: '1px solid #1e3d5c',
-                    borderRadius: '8px',
-                    color: '#f8fafc',
-                  }}
+                  contentStyle={{ backgroundColor: '#1a2f4a', border: '1px solid #1e3d5c', borderRadius: '8px', color: '#f8fafc' }}
                   labelStyle={{ color: '#f8fafc', fontWeight: 600 }}
                   formatter={(value: number) => [formatCurrency(value), '']}
                 />
-                <Legend 
+                <Legend
                   wrapperStyle={{ paddingTop: '16px' }}
                   formatter={(value) => (
                     <span style={{ color: '#94a3b8', fontSize: '12px' }}>
@@ -251,18 +234,8 @@ export default function DashboardPage() {
                     </span>
                   )}
                 />
-                <Bar 
-                  dataKey="recaudado" 
-                  fill="#00d4aa" 
-                  radius={[4, 4, 0, 0]}
-                  name="recaudado"
-                />
-                <Bar 
-                  dataKey="egresos" 
-                  fill="#f59e0b" 
-                  radius={[4, 4, 0, 0]}
-                  name="egresos"
-                />
+                <Bar dataKey="recaudado" fill="#00d4aa" radius={[4, 4, 0, 0]} name="recaudado" />
+                <Bar dataKey="egresos" fill="#f59e0b" radius={[4, 4, 0, 0]} name="egresos" />
               </BarChart>
             </ResponsiveContainer>
           </div>
