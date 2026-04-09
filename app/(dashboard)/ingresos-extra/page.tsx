@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Trash2, Loader2 } from "lucide-react"
+import { Trash2, Loader2, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { FileUploadZone } from "@/components/file-upload-zone"
 import { createClient } from "@/lib/supabase/client"
 
 interface Ingreso {
@@ -22,6 +23,7 @@ interface Ingreso {
   mes: number
   anio: number
   nota?: string
+  url_comprobante?: string
   fecha_carga: string
 }
 
@@ -58,6 +60,7 @@ export default function IngresosExtraPage() {
   const [nota, setNota] = useState("")
   const [formMonth, setFormMonth] = useState(now.getMonth() + 1)
   const [formYear, setFormYear] = useState(now.getFullYear())
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const supabase = createClient()
   const years = [2024, 2025, 2026]
@@ -82,17 +85,38 @@ export default function IngresosExtraPage() {
     e.preventDefault()
     if (!descripcion.trim() || !monto) return
     setSubmitting(true)
+
+    let url_comprobante = null
+
+    if (selectedFile) {
+      const ext = selectedFile.name.split('.').pop()
+      const fileName = `ingreso_${Date.now()}.${ext}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("comprobantes-ingresos")
+        .upload(fileName, selectedFile)
+
+      if (!uploadError && uploadData) {
+        const { data: urlData } = supabase.storage
+          .from("comprobantes-ingresos")
+          .getPublicUrl(fileName)
+        url_comprobante = urlData.publicUrl
+      }
+    }
+
     const { error } = await supabase.from("ingresos").insert({
       descripcion: descripcion.trim(),
       monto: parseFloat(monto),
       mes: formMonth,
       anio: formYear,
       nota: nota.trim() || null,
+      url_comprobante,
     })
+
     if (!error) {
       setDescripcion("")
       setMonto("")
       setNota("")
+      setSelectedFile(null)
       if (formMonth === selectedMonth && formYear === selectedYear) fetchIngresos()
     }
     setSubmitting(false)
@@ -176,6 +200,7 @@ export default function IngresosExtraPage() {
                 </Select>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label className="text-foreground">Nota (opcional)</Label>
               <Textarea
@@ -186,6 +211,12 @@ export default function IngresosExtraPage() {
                 rows={3}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-foreground">Comprobante (opcional)</Label>
+              <FileUploadZone onFileSelect={setSelectedFile} />
+            </div>
+
             <Button
               type="submit"
               disabled={submitting}
@@ -252,6 +283,7 @@ export default function IngresosExtraPage() {
                   <TableHead className="text-muted-foreground">Monto</TableHead>
                   <TableHead className="text-muted-foreground hidden sm:table-cell">Nota</TableHead>
                   <TableHead className="text-muted-foreground hidden sm:table-cell">Fecha</TableHead>
+                  <TableHead className="text-muted-foreground">Comprobante</TableHead>
                   <TableHead className="text-muted-foreground">Eliminar</TableHead>
                 </TableRow>
               </TableHeader>
@@ -268,6 +300,19 @@ export default function IngresosExtraPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden sm:table-cell">
                       {formatDate(ingreso.fecha_carga)}
+                    </TableCell>
+                    <TableCell>
+                      {ingreso.url_comprobante ? (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 text-teal hover:text-teal hover:bg-teal/10"
+                          onClick={() => window.open(ingreso.url_comprobante, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -290,6 +335,7 @@ export default function IngresosExtraPage() {
                   <TableCell className="font-heading text-xl text-teal">{formatCurrency(totalIngresos)}</TableCell>
                   <TableCell className="hidden sm:table-cell" />
                   <TableCell className="hidden sm:table-cell" />
+                  <TableCell />
                   <TableCell />
                 </TableRow>
               </TableBody>
