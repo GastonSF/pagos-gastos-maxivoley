@@ -5,7 +5,8 @@ import {
   LayoutDashboard, 
   Users, 
   CreditCard, 
-  ArrowUpCircle, 
+  ArrowUpCircle,
+  TrendingUp,
   BarChart2,
   Menu,
   X,
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/jugadores", icon: Users, label: "Jugadores" },
   { href: "/pagos", icon: CreditCard, label: "Pagos" },
   { href: "/egresos", icon: ArrowUpCircle, label: "Egresos" },
+  { href: "/ingresos-extra", icon: TrendingUp, label: "Ingresos Extra" },
   { href: "/resumen", icon: BarChart2, label: "Resumen" },
 ]
 
