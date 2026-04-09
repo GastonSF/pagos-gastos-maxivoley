@@ -220,7 +220,7 @@ export default function IngresosExtraPage() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full bg-teal text-primary-foreground hover:bg-teal/90 font-medium"
+              className="w-full bg-teal text-white hover:bg-teal/90 font-medium"
             >
               {submitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Registrando...</>
