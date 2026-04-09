@@ -26,6 +26,14 @@ interface Egreso {
   comprobante_url?: string
 }
 
+interface IngresoExtra {
+  id: string
+  descripcion: string
+  monto: number
+  nota?: string
+  url_comprobante?: string
+}
+
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -36,8 +44,7 @@ function formatCurrency(amount: number): string {
 }
 
 function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('es-AR')
+  return new Date(dateString).toLocaleDateString('es-AR')
 }
 
 export default function ResumenPage() {
@@ -45,14 +52,17 @@ export default function ResumenPage() {
   const [mesSeleccionado, setMesSeleccionado] = useState(now.getMonth() + 1)
   const [anioSeleccionado, setAnioSeleccionado] = useState(now.getFullYear())
   const [loading, setLoading] = useState(true)
-  
-  const [totalRecaudado, setTotalRecaudado] = useState(0)
+
+  const [totalCuotas, setTotalCuotas] = useState(0)
+  const [totalIngresosExtra, setTotalIngresosExtra] = useState(0)
   const [totalEgresos, setTotalEgresos] = useState(0)
   const [pagosConfirmados, setPagosConfirmados] = useState<PagoConfirmado[]>([])
   const [egresos, setEgresos] = useState<Egreso[]>([])
+  const [ingresosExtra, setIngresosExtra] = useState<IngresoExtra[]>([])
   const [jugadoresActivos, setJugadoresActivos] = useState(0)
   const [jugadoresQuePagaron, setJugadoresQuePagaron] = useState(0)
 
+  const totalRecaudado = totalCuotas + totalIngresosExtra
   const saldo = totalRecaudado - totalEgresos
 
   useEffect(() => {
@@ -60,7 +70,7 @@ export default function ResumenPage() {
       setLoading(true)
       const supabase = createClient()
 
-      // Fetch total recaudado (confirmed payments for selected month)
+      // Pagos confirmados (cuotas)
       const { data: pagosData } = await supabase
         .from("pagos")
         .select("monto, fecha_subida, id, usuarios(nombre, apellido)")
@@ -68,12 +78,12 @@ export default function ResumenPage() {
         .eq("mes", mesSeleccionado)
         .eq("anio", anioSeleccionado)
 
-      const recaudado = pagosData?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
-      setTotalRecaudado(recaudado)
+      const cuotas = pagosData?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+      setTotalCuotas(cuotas)
       setPagosConfirmados(pagosData as PagoConfirmado[] || [])
       setJugadoresQuePagaron(pagosData?.length || 0)
 
-      // Fetch total egresos for selected month
+      // Egresos
       const { data: egresosData } = await supabase
         .from("egresos")
         .select("*")
@@ -84,7 +94,18 @@ export default function ResumenPage() {
       setTotalEgresos(egresosTotal)
       setEgresos(egresosData || [])
 
-      // Fetch total jugadores activos
+      // Ingresos extra
+      const { data: ingresosData } = await supabase
+        .from("ingresos")
+        .select("*")
+        .eq("mes", mesSeleccionado)
+        .eq("anio", anioSeleccionado)
+
+      const ingresosTotal = ingresosData?.reduce((sum, i) => sum + (i.monto || 0), 0) || 0
+      setTotalIngresosExtra(ingresosTotal)
+      setIngresosExtra(ingresosData || [])
+
+      // Jugadores activos
       const { count: activosCount } = await supabase
         .from("usuarios")
         .select("*", { count: "exact", head: true })
@@ -92,14 +113,12 @@ export default function ResumenPage() {
         .eq("estado", "activo")
 
       setJugadoresActivos(activosCount || 0)
-
       setLoading(false)
     }
 
     fetchData()
   }, [mesSeleccionado, anioSeleccionado])
 
-  // Donut chart data
   const noPagaron = jugadoresActivos - jugadoresQuePagaron
   const donutData = [
     { name: "Pagaron", value: jugadoresQuePagaron, color: "#00d4aa" },
@@ -118,7 +137,6 @@ export default function ResumenPage() {
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-4xl tracking-wide text-foreground">
@@ -129,25 +147,17 @@ export default function ResumenPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Select
-            value={String(mesSeleccionado)}
-            onValueChange={(v) => setMesSeleccionado(Number(v))}
-          >
+          <Select value={String(mesSeleccionado)} onValueChange={(v) => setMesSeleccionado(Number(v))}>
             <SelectTrigger className="w-[140px] bg-card border-border">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {MESES.map((mes, index) => (
-                <SelectItem key={index + 1} value={String(index + 1)}>
-                  {mes}
-                </SelectItem>
+                <SelectItem key={index + 1} value={String(index + 1)}>{mes}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={String(anioSeleccionado)}
-            onValueChange={(v) => setAnioSeleccionado(Number(v))}
-          >
+          <Select value={String(anioSeleccionado)} onValueChange={(v) => setAnioSeleccionado(Number(v))}>
             <SelectTrigger className="w-[100px] bg-card border-border">
               <SelectValue />
             </SelectTrigger>
@@ -164,25 +174,24 @@ export default function ResumenPage() {
         <Card className="bg-card border-border animate-fade-in animate-fade-in-1">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Jugadores Activos</p>
-            <p className="font-heading text-4xl tracking-wide text-foreground mt-2">
-              {jugadoresActivos}
-            </p>
+            <p className="font-heading text-4xl tracking-wide text-foreground mt-2">{jugadoresActivos}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border animate-fade-in animate-fade-in-1">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Total Recaudado</p>
-            <p className="font-heading text-4xl tracking-wide text-teal mt-2">
-              {formatCurrency(totalRecaudado)}
-            </p>
+            <p className="font-heading text-4xl tracking-wide text-teal mt-2">{formatCurrency(totalRecaudado)}</p>
+            {totalIngresosExtra > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Cuotas: {formatCurrency(totalCuotas)} + Extras: {formatCurrency(totalIngresosExtra)}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Total Egresos</p>
-            <p className="font-heading text-4xl tracking-wide text-amber mt-2">
-              {formatCurrency(totalEgresos)}
-            </p>
+            <p className="font-heading text-4xl tracking-wide text-amber mt-2">{formatCurrency(totalEgresos)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border animate-fade-in animate-fade-in-3">
@@ -195,9 +204,9 @@ export default function ResumenPage() {
         </Card>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Confirmed Payments */}
+      {/* Three Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pagos confirmados */}
         <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
           <CardHeader>
             <CardTitle className="font-heading text-xl tracking-wide text-foreground">
@@ -206,27 +215,18 @@ export default function ResumenPage() {
           </CardHeader>
           <CardContent>
             {pagosConfirmados.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                No hay pagos confirmados para este mes.
-              </p>
+              <p className="text-muted-foreground text-center py-4">No hay pagos confirmados.</p>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {pagosConfirmados.map((payment) => (
-                  <div 
-                    key={payment.id}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
+                  <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div>
                       <p className="font-medium text-foreground">
                         {payment.usuarios?.nombre} {payment.usuarios?.apellido}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(payment.fecha_subida)}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{formatDate(payment.fecha_subida)}</p>
                     </div>
-                    <span className="font-heading text-lg text-teal">
-                      {formatCurrency(payment.monto)}
-                    </span>
+                    <span className="font-heading text-lg text-teal">{formatCurrency(payment.monto)}</span>
                   </div>
                 ))}
               </div>
@@ -234,7 +234,46 @@ export default function ResumenPage() {
           </CardContent>
         </Card>
 
-        {/* Expenses List */}
+        {/* Ingresos extra */}
+        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
+              INGRESOS EXTRA ({ingresosExtra.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {ingresosExtra.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay ingresos extra.</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {ingresosExtra.map((ingreso) => (
+                  <div key={ingreso.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-medium text-foreground">{ingreso.descripcion}</p>
+                        {ingreso.nota && (
+                          <p className="text-xs text-muted-foreground">{ingreso.nota}</p>
+                        )}
+                      </div>
+                      {ingreso.url_comprobante && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
+                          onClick={() => window.open(ingreso.url_comprobante, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <span className="font-heading text-lg text-teal">{formatCurrency(ingreso.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Egresos */}
         <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
           <CardHeader>
             <CardTitle className="font-heading text-xl tracking-wide text-foreground">
@@ -243,33 +282,24 @@ export default function ResumenPage() {
           </CardHeader>
           <CardContent>
             {egresos.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                No hay egresos registrados para este mes.
-              </p>
+              <p className="text-muted-foreground text-center py-4">No hay egresos registrados.</p>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {egresos.map((expense) => (
-                  <div 
-                    key={expense.id}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
+                  <div key={expense.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-3">
                       <p className="font-medium text-foreground">{expense.descripcion}</p>
                       {expense.comprobante_url && (
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="ghost" size="icon"
                           className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
                           onClick={() => window.open(expense.comprobante_url, '_blank')}
                         >
                           <Eye className="h-4 w-4" />
-                          <span className="sr-only">Ver comprobante</span>
                         </Button>
                       )}
                     </div>
-                    <span className="font-heading text-lg text-amber">
-                      {formatCurrency(expense.monto)}
-                    </span>
+                    <span className="font-heading text-lg text-amber">{formatCurrency(expense.monto)}</span>
                   </div>
                 ))}
               </div>
@@ -291,13 +321,9 @@ export default function ResumenPage() {
               <PieChart>
                 <Pie
                   data={donutData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
+                  cx="50%" cy="50%"
+                  innerRadius={70} outerRadius={100}
+                  paddingAngle={2} dataKey="value" stroke="none"
                 >
                   {donutData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -305,30 +331,22 @@ export default function ResumenPage() {
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            {/* Center label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="font-heading text-4xl text-teal">{percentage}%</span>
               <span className="text-muted-foreground text-sm">pago</span>
             </div>
           </div>
-          {/* Legend */}
           <div className="flex justify-center gap-6 mt-4">
             {donutData.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {item.name} ({item.value})
-                </span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-sm text-muted-foreground">{item.name} ({item.value})</span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Footer Note */}
       <p className="text-center text-sm text-muted-foreground">
         Pagos y Gastos MaxiVoley - Resumen generado automaticamente cada mes.
       </p>
