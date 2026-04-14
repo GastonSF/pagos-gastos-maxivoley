@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { createClient } from "@/lib/supabase/client"
 
 interface PagoConfirmado {
@@ -34,6 +34,12 @@ interface IngresoExtra {
   url_comprobante?: string
 }
 
+interface Jugador {
+  id: string
+  nombre: string
+  apellido: string
+}
+
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -45,6 +51,34 @@ function formatCurrency(amount: number): string {
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('es-AR')
+}
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload
+    if (item.name === "No pagaron" && item.jugadores && item.jugadores.length > 0) {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg max-w-[200px]">
+          <p className="font-bold text-foreground text-sm mb-2">No pagaron ({item.value}):</p>
+          <div className="space-y-1">
+            {item.jugadores.map((j: Jugador) => (
+              <p key={j.id} className="text-sm text-muted-foreground">
+                {j.nombre} {j.apellido}
+              </p>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    if (item.name === "Pagaron") {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-bold text-foreground text-sm">Pagaron: {item.value}</p>
+        </div>
+      )
+    }
+  }
+  return null
 }
 
 export default function ResumenPage() {
@@ -61,6 +95,7 @@ export default function ResumenPage() {
   const [ingresosExtra, setIngresosExtra] = useState<IngresoExtra[]>([])
   const [jugadoresActivos, setJugadoresActivos] = useState(0)
   const [jugadoresQuePagaron, setJugadoresQuePagaron] = useState(0)
+  const [jugadoresNoPagaron, setJugadoresNoPagaron] = useState<Jugador[]>([])
 
   const totalRecaudado = totalCuotas + totalIngresosExtra
   const saldo = totalRecaudado - totalEgresos
@@ -70,10 +105,10 @@ export default function ResumenPage() {
       setLoading(true)
       const supabase = createClient()
 
-      // Pagos confirmados (cuotas)
+      // Pagos confirmados
       const { data: pagosData } = await supabase
         .from("pagos")
-        .select("monto, fecha_subida, id, usuarios(nombre, apellido)")
+        .select("monto, fecha_subida, id, usuario_id, usuarios(nombre, apellido)")
         .eq("estado", "confirmado")
         .eq("mes", mesSeleccionado)
         .eq("anio", anioSeleccionado)
@@ -82,6 +117,22 @@ export default function ResumenPage() {
       setTotalCuotas(cuotas)
       setPagosConfirmados(pagosData as PagoConfirmado[] || [])
       setJugadoresQuePagaron(pagosData?.length || 0)
+
+      // IDs de los que pagaron
+      const idsPagaron = new Set(pagosData?.map((p: any) => p.usuario_id) || [])
+
+      // Todos los jugadores activos
+      const { data: jugadoresData } = await supabase
+        .from("usuarios")
+        .select("id, nombre, apellido")
+        .eq("rol", "jugador")
+        .eq("estado", "activo")
+
+      setJugadoresActivos(jugadoresData?.length || 0)
+
+      // Jugadores que NO pagaron
+      const noPagaron = (jugadoresData || []).filter((j) => !idsPagaron.has(j.id))
+      setJugadoresNoPagaron(noPagaron)
 
       // Egresos
       const { data: egresosData } = await supabase
@@ -105,24 +156,16 @@ export default function ResumenPage() {
       setTotalIngresosExtra(ingresosTotal)
       setIngresosExtra(ingresosData || [])
 
-      // Jugadores activos
-      const { count: activosCount } = await supabase
-        .from("usuarios")
-        .select("*", { count: "exact", head: true })
-        .eq("rol", "jugador")
-        .eq("estado", "activo")
-
-      setJugadoresActivos(activosCount || 0)
       setLoading(false)
     }
 
     fetchData()
   }, [mesSeleccionado, anioSeleccionado])
 
-  const noPagaron = jugadoresActivos - jugadoresQuePagaron
+  const noPagaronCount = jugadoresNoPagaron.length
   const donutData = [
-    { name: "Pagaron", value: jugadoresQuePagaron, color: "#00d4aa" },
-    { name: "No pagaron", value: noPagaron > 0 ? noPagaron : 0, color: "#f43f5e" },
+    { name: "Pagaron", value: jugadoresQuePagaron, color: "#00d4aa", jugadores: [] },
+    { name: "No pagaron", value: noPagaronCount > 0 ? noPagaronCount : 0, color: "#f43f5e", jugadores: jugadoresNoPagaron },
   ]
   const totalJugadores = donutData.reduce((sum, item) => sum + item.value, 0)
   const percentage = totalJugadores > 0 ? Math.round((donutData[0].value / totalJugadores) * 100) : 0
@@ -206,150 +249,4 @@ export default function ResumenPage() {
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pagos confirmados */}
-        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
-              PAGOS CONFIRMADOS ({pagosConfirmados.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pagosConfirmados.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No hay pagos confirmados.</p>
-            ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {pagosConfirmados.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {payment.usuarios?.nombre} {payment.usuarios?.apellido}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{formatDate(payment.fecha_subida)}</p>
-                    </div>
-                    <span className="font-heading text-lg text-teal">{formatCurrency(payment.monto)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Ingresos extra */}
-        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
-              INGRESOS EXTRA ({ingresosExtra.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ingresosExtra.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No hay ingresos extra.</p>
-            ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {ingresosExtra.map((ingreso) => (
-                  <div key={ingreso.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <p className="font-medium text-foreground">{ingreso.descripcion}</p>
-                        {ingreso.nota && (
-                          <p className="text-xs text-muted-foreground">{ingreso.nota}</p>
-                        )}
-                      </div>
-                      {ingreso.url_comprobante && (
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
-                          onClick={() => window.open(ingreso.url_comprobante, '_blank')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    <span className="font-heading text-lg text-teal">{formatCurrency(ingreso.monto)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Egresos */}
-        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
-              EGRESOS DEL MES ({egresos.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {egresos.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No hay egresos registrados.</p>
-            ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {egresos.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div className="flex items-center gap-3">
-                      <p className="font-medium text-foreground">{expense.descripcion}</p>
-                      {expense.comprobante_url && (
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
-                          onClick={() => window.open(expense.comprobante_url, '_blank')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    <span className="font-heading text-lg text-amber">{formatCurrency(expense.monto)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Donut Chart */}
-      <Card className="bg-card border-border animate-fade-in animate-fade-in-3">
-        <CardHeader>
-          <CardTitle className="font-heading text-xl tracking-wide text-foreground">
-            ESTADO DE PAGOS
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  cx="50%" cy="50%"
-                  innerRadius={70} outerRadius={100}
-                  paddingAngle={2} dataKey="value" stroke="none"
-                >
-                  {donutData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-heading text-4xl text-teal">{percentage}%</span>
-              <span className="text-muted-foreground text-sm">pago</span>
-            </div>
-          </div>
-          <div className="flex justify-center gap-6 mt-4">
-            {donutData.map((item) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-sm text-muted-foreground">{item.name} ({item.value})</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Pagos y Gastos MaxiVoley - Resumen generado automaticamente cada mes.
-      </p>
-    </div>
-  )
-}
+        <Card className="bg
