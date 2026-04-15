@@ -6,34 +6,26 @@ import './globals.css'
 const dmSans = DM_Sans({ 
   subsets: ["latin"],
   variable: "--font-sans",
-});
+})
 
 const bebasNeue = Bebas_Neue({ 
   weight: "400",
   subsets: ["latin"],
   variable: "--font-display",
-});
+})
 
 export const metadata: Metadata = {
   title: 'Pagos y Gastos MaxiVóley',
   description: 'Sistema de gestión de pagos y gastos para el equipo MaxiVóley',
-  generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'MaxiVóley',
+  },
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/icon-192x192.png',
+    apple: '/icon-192x192.png',
   },
 }
 
@@ -44,6 +36,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#00d4aa" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="MaxiVóley" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+      </head>
       <body className={`${dmSans.variable} ${bebasNeue.variable} font-sans antialiased`}>
         {children}
         <Analytics />
