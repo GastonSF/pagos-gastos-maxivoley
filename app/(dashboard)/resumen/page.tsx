@@ -249,4 +249,148 @@ export default function ResumenPage() {
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg
+        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
+              PAGOS CONFIRMADOS ({pagosConfirmados.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pagosConfirmados.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay pagos confirmados.</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {pagosConfirmados.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {payment.usuarios?.nombre} {payment.usuarios?.apellido}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{formatDate(payment.fecha_subida)}</p>
+                    </div>
+                    <span className="font-heading text-lg text-teal">{formatCurrency(payment.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
+              INGRESOS EXTRA ({ingresosExtra.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {ingresosExtra.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay ingresos extra.</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {ingresosExtra.map((ingreso) => (
+                  <div key={ingreso.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-medium text-foreground">{ingreso.descripcion}</p>
+                        {ingreso.nota && (
+                          <p className="text-xs text-muted-foreground">{ingreso.nota}</p>
+                        )}
+                      </div>
+                      {ingreso.url_comprobante && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
+                          onClick={() => window.open(ingreso.url_comprobante, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <span className="font-heading text-lg text-teal">{formatCurrency(ingreso.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border animate-fade-in animate-fade-in-2">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl tracking-wide text-foreground">
+              EGRESOS DEL MES ({egresos.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {egresos.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay egresos registrados.</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {egresos.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-3">
+                      <p className="font-medium text-foreground">{expense.descripcion}</p>
+                      {expense.comprobante_url && (
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-7 w-7 text-teal hover:text-teal hover:bg-teal/10"
+                          onClick={() => window.open(expense.comprobante_url, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <span className="font-heading text-lg text-amber">{formatCurrency(expense.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Donut Chart */}
+      <Card className="bg-card border-border animate-fade-in animate-fade-in-3">
+        <CardHeader>
+          <CardTitle className="font-heading text-xl tracking-wide text-foreground">
+            ESTADO DE PAGOS
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donutData}
+                  cx="50%" cy="50%"
+                  innerRadius={70} outerRadius={100}
+                  paddingAngle={2} dataKey="value" stroke="none"
+                >
+                  {donutData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="font-heading text-4xl text-teal">{percentage}%</span>
+              <span className="text-muted-foreground text-sm">pago</span>
+            </div>
+          </div>
+          <div className="flex justify-center gap-6 mt-4">
+            {donutData.map((item) => (
+              <div key={item.name} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-sm text-muted-foreground">{item.name} ({item.value})</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Pagos y Gastos MaxiVoley - Resumen generado automaticamente cada mes.
+      </p>
+    </div>
+  )
+}
