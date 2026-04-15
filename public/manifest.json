@@ -1,0 +1,24 @@
+{
+  "name": "Pagos y Gastos MaxiVóley",
+  "short_name": "MaxiVóley",
+  "description": "Sistema de gestión de pagos y gastos del equipo MaxiVóley",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f2338",
+  "theme_color": "#00d4aa",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
