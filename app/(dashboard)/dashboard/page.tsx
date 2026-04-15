@@ -20,6 +20,8 @@ import {
 interface DashboardData {
   jugadoresActivos: number
   totalRecaudado: number
+  totalCuotas: number
+  totalIngresosExtra: number
   totalEgresos: number
   saldo: number
   pagosPendientes: number
@@ -100,6 +102,8 @@ export default function DashboardPage() {
       setData({
         jugadoresActivos: jugadoresRes.count || 0,
         totalRecaudado,
+        totalCuotas,
+        totalIngresosExtra,
         totalEgresos,
         saldo: totalRecaudado - totalEgresos,
         pagosPendientes: pendientesRes.count || 0,
@@ -176,7 +180,13 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <KpiCard title="Jugadores Activos" value={String(data?.jugadoresActivos || 0)} icon={Users} accent="teal" animationDelay={0} />
-        <KpiCard title="Total Recaudado" value={formatCurrency(data?.totalRecaudado || 0)} icon={DollarSign} accent="emerald" animationDelay={1} />
+        <KpiCard title="Total Recaudado" value={formatCurrency(data?.totalRecaudado || 0)} icon={DollarSign} accent="emerald" animationDelay={1}>
+          {(data?.totalIngresosExtra || 0) > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Cuotas: {formatCurrency(data?.totalCuotas || 0)} + Extras: {formatCurrency(data?.totalIngresosExtra || 0)}
+            </p>
+          )}
+        </KpiCard>
         <KpiCard title="Total Egresos" value={formatCurrency(data?.totalEgresos || 0)} icon={TrendingDown} accent="rose" animationDelay={2} />
         <KpiCard title="Saldo" value={formatCurrency(data?.saldo || 0)} icon={Wallet} accent={(data?.saldo || 0) >= 0 ? "emerald" : "rose"} animationDelay={3} />
         <KpiCard title="Pagos Pendientes" value={String(data?.pagosPendientes || 0)} icon={Clock} accent="amber" animationDelay={0} />
