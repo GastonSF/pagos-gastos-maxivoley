@@ -64,7 +64,7 @@ export default function DashboardPage() {
     async function fetchData() {
       const supabase = createClient()
 
-      const [jugadoresRes, pagosRes, egresosRes, pendientesRes] = await Promise.all([
+      const [jugadoresRes, pagosRes, egresosRes, pendientesRes, ingresosRes] = await Promise.all([
         supabase
           .from("usuarios")
           .select("*", { count: "exact", head: true })
@@ -85,9 +85,16 @@ export default function DashboardPage() {
           .from("pagos")
           .select("*", { count: "exact", head: true })
           .eq("estado", "pendiente"),
+        supabase
+          .from("ingresos")
+          .select("monto")
+          .eq("mes", mesActual)
+          .eq("anio", anioActual),
       ])
 
-      const totalRecaudado = pagosRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+      const totalCuotas = pagosRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+      const totalIngresosExtra = ingresosRes.data?.reduce((sum, i) => sum + (i.monto || 0), 0) || 0
+      const totalRecaudado = totalCuotas + totalIngresosExtra
       const totalEgresos = egresosRes.data?.reduce((sum, e) => sum + (e.monto || 0), 0) || 0
 
       setData({
@@ -100,7 +107,7 @@ export default function DashboardPage() {
 
       const monthsToFetch = getNextSixMonths()
       const monthlyDataPromises = monthsToFetch.map(async ({ mes, anio, label }) => {
-        const [pagosMonthRes, egresosMonthRes] = await Promise.all([
+        const [pagosMonthRes, egresosMonthRes, ingresosMonthRes] = await Promise.all([
           supabase
             .from("pagos")
             .select("monto")
@@ -112,9 +119,16 @@ export default function DashboardPage() {
             .select("monto")
             .eq("mes", mes)
             .eq("anio", anio),
+          supabase
+            .from("ingresos")
+            .select("monto")
+            .eq("mes", mes)
+            .eq("anio", anio),
         ])
 
-        const recaudado = pagosMonthRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+        const cuotas = pagosMonthRes.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0
+        const extras = ingresosMonthRes.data?.reduce((sum, i) => sum + (i.monto || 0), 0) || 0
+        const recaudado = cuotas + extras
         const egresos = egresosMonthRes.data?.reduce((sum, e) => sum + (e.monto || 0), 0) || 0
 
         return { month: label, recaudado, egresos }
